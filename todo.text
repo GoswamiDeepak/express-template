@@ -1,0 +1,3 @@
+TODO
+[-] Register user with full name, username, email, phone, avatar, coverimage, watch-history, password, refresh-token
+[-]Login user and create access-token and refresh-token
