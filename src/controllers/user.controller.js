@@ -306,7 +306,9 @@ const updateUserCoverImage = AsyncHandler(async (req, res) => {
     }
 });
 
-const getUserChannelProfile = AsyncHandler(async (req, res) => {});
+const getUserChannelProfile = AsyncHandler(async (req, res) => {
+    
+});
 
 const getWatchHistory = AsyncHandler(async (req, res) => {});
 
