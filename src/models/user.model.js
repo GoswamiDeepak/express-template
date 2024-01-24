@@ -4,6 +4,11 @@ import jwt from "jsonwebtoken";
 
 const userSchema = new mongoose.Schema(
     {
+        phone: {
+            type: String,
+            unique: true,
+            required: true,
+        },
         fullname: {
             type: String,
             required: true,
@@ -84,4 +89,5 @@ userSchema.methods.generateRefreshToken = function () {
         }
     );
 };
+
 export const User = mongoose.model("User", userSchema);
