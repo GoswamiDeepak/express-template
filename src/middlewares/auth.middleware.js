@@ -1,5 +1,4 @@
 import jwt from "jsonwebtoken";
-import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
 
 const auth = async (req, res, next) => {
@@ -7,15 +6,12 @@ const auth = async (req, res, next) => {
         const accessToken =
             req.cookies?.accessToken ||
             req.header("Authorization")?.replace("Bearer ", "");
-        // if (!accessToken) {
-        //     throw new ApiError(401, "Unauthoried Request !");
-        // }
         const decodedToken = jwt.verify(
             accessToken,
             process.env.ACCESS_TOKEN_SECRET
         );
         const user = await User.findById(decodedToken._id).select(
-            "-password -refreshToken"
+            "-password -refreshToken -__v"
         );
         req.user = user;
         next();

@@ -114,7 +114,10 @@ const logoutuser = AsyncHandler(async (req, res) => {
         await User.findByIdAndUpdate(
             req.user._id,
             {
-                refreshToken: "",
+                // refreshToken: "",
+                $unset: {
+                    refreshToken: 1,
+                },
             },
             {
                 new: true,
@@ -137,10 +140,9 @@ const refreshAccessToken = AsyncHandler(async (req, res) => {
     //[+] match verify refreshtoken from db and user's given refresh token
     //[+] generate new accessToken and refeshToken
     //[+] send new accessToken and refreshToken to user as refresh
-    // console.log(req.cookies);
-    // return;
+
     const incomingRefreshToken =
-        req.cookies.refreshToken || req.body.refreshToken;
+        req.cookies.refreshToken || req.body?.refreshToken;
     if (!incomingRefreshToken) {
         throw new ApiError(401, "No Refresh Token found !");
     }
@@ -149,7 +151,12 @@ const refreshAccessToken = AsyncHandler(async (req, res) => {
             incomingRefreshToken,
             process.env.REFRESH_TOKEN_SECRET
         );
-        const user = await User.findById(decodedToken._id);
+        const user = await User.findById(decodedToken._id).select(
+            "-password -refreshToken -__v"
+        );
+        if (!user) {
+            throw new ApiError(400, "no user find");
+        }
         const { accessToken, refreshToken } =
             await generateAccessAndRefereshTokens(decodedToken._id);
         res.status(200)
@@ -163,62 +170,47 @@ const refreshAccessToken = AsyncHandler(async (req, res) => {
                 )
             );
     } catch (error) {
+        console.log(error);
         throw new ApiError(401, error || "Invalid Refresh Token!");
     }
 });
 
 const chageCurrentPassword = AsyncHandler(async (req, res) => {
-    //[-][+] Get old Password, new password
-    //[-][+] match old password is valid
-    //[-][+] if old password is valid then replace password with new password
-
     try {
         const { oldPassword, newPassword } = req.body;
+        if (!oldPassword || !newPassword) {
+            throw new ApiError(
+                400,
+                "Enter your old password and new password!"
+            );
+        }
         const user = await User.findById(req.user._id);
-        const isPasswordValid = await user.isPasswordCorrect(oldPassword);
+        if (!user) {
+            throw new ApiError(400, "User Not found!");
+        }
+        const isPasswordValid = await user.isPasswordCorrect(
+            String(oldPassword)
+        );
         if (!isPasswordValid) {
             throw new ApiError(401, "Invalid old password!");
         }
-        //Step 1 to replace password
-        /*
-        await User.findByIdAndUpdate(
-            user._id,
-            {
-                $set: {
-                    password: newPassword,
-                },
-            },
-            {
-                new: true,
-            }
-        );
-        */
-
-        //step 2 tp replace password
-        user.password = newPassword;
+        user.password = newPassword.toString();
         await user.save({
             validateBeforeSave: false,
         });
-
         return res
             .status(200)
             .json(new ApiResponce(200, {}, "Password updated successfully!"));
     } catch (error) {
-        console.log(error);
-        throw new ApiError(500, error || "Server down!");
+        throw new ApiError(error.statusCode || 500, error || "Server down!");
     }
 });
 
 const getCurrentUser = AsyncHandler(async (req, res) => {
-    //[-]get user data from the req
     res.status(200).json(new ApiResponce(200, req.user, "User's data!"));
 });
 
 const updateAccountDetails = AsyncHandler(async (req, res) => {
-    //[-][+] user ke field jaise username, email, phone, full name ko lena
-    //[-][+] error responce karna hai agar koi bhi field miss rahti hai upper me se- send error reponce wheather any upper feild are empty
-    //[-][+] update the newly data from old one document and leave unnecessary feild
-
     try {
         const { username, fullname, phone, email } = req.body;
         if (!username || !fullname || !phone || !email) {
@@ -237,11 +229,17 @@ const updateAccountDetails = AsyncHandler(async (req, res) => {
             {
                 new: true,
             }
-        ).select("-password - refreshToken");
+        ).select("-password -refreshToken -__v");
+        if (!user) {
+            throw new ApiError(400, "User not found !");
+        }
         res.status(200).json(new ApiResponce(200, user, "user field updated!"));
     } catch (error) {
         console.log(error);
-        throw new ApiError(500, error.message || "Server down!");
+        throw new ApiError(
+            error.statusCode || 500,
+            error.message || "Server down!"
+        );
     }
 });
 
@@ -279,16 +277,24 @@ const updateUserAvatar = AsyncHandler(async (req, res) => {
 });
 
 const updateUserCoverImage = AsyncHandler(async (req, res) => {
-    //[-]take file path
-    //[-]remove the old image
-    //[-]upload the new image
     try {
-        const coverImage = req.file?.avatar?.path;
+        const coverImage = req.file?.path;
         if (!coverImage) {
-            throw new ApiError(400, "Plese give avatar image!");
+            throw new ApiError(400, "Plese give Coverimage!");
         }
-        await deleteFromCloudinary(req.user.coverImage);
+        const deletedCoverImage = await deleteFromCloudinary(
+            req.user.coverImage
+        );
+        if (!deletedCoverImage) {
+            throw new ApiError(
+                400,
+                "Cloudinary can't remove the image from server"
+            );
+        }
         const newCoverImage = await uploadOnCloudinary(coverImage);
+        if (!newCoverImage) {
+            throw new ApiError(400, "Cloudinary can't upload the image");
+        }
         const user = await User.findByIdAndUpdate(
             req.user._id,
             {
@@ -300,15 +306,18 @@ const updateUserCoverImage = AsyncHandler(async (req, res) => {
                 new: true,
             }
         ).select("-password -refreshToken -__v");
-        res.status(200).json(new ApiError(200, user, "Cover Image updated!"));
+        if (!user) {
+            throw new ApiError(401, "User do not found");
+        }
+        res.status(200).json(
+            new ApiResponce(200, user, "Cover Image updated!")
+        );
     } catch (error) {
-        throw new ApiError(500, error || "Surver Down!");
+        throw new ApiError(error.statusCode || 500, error || "Surver Down!");
     }
 });
 
-const getUserChannelProfile = AsyncHandler(async (req, res) => {
-    
-});
+const getUserChannelProfile = AsyncHandler(async (req, res) => {});
 
 const getWatchHistory = AsyncHandler(async (req, res) => {});
 
